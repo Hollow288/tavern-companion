@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "酒馆随聊 · Tavern Companion",
+  "version": "1.1.1",
+  "description": "在独立小窗中查看 SillyTavern 最新回复和已加载的聊天记录，模拟页面操作发送、重新生成和停止。",
+  "minimum_chrome_version": "109",
+  "permissions": ["storage", "scripting"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "打开酒馆随聊",
+    "default_icon": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" }
+  },
+  "icons": { "16": "icons/16.png", "48": "icons/48.png", "128": "icons/128.png" },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; connect-src 'none'; img-src 'self' data:; style-src 'self'; base-uri 'none'; form-action 'none'"
+  }
+}

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>酒馆随聊</title>
+  <link rel="stylesheet" href="chat.css">
+  <script src="config.js" defer></script>
+  <script src="shared.js" defer></script>
+  <script src="chat.js" defer></script>
+</head>
+<body>
+  <section class="connection" aria-label="连接设置">
+    <div class="target-row">
+      <label class="sr-only" for="target">连接的酒馆标签页</label>
+      <select id="target"><option value="">正在寻找酒馆标签页…</option></select>
+      <button id="refresh" class="icon-button" title="刷新连接" aria-label="刷新连接">↻</button>
+    </div>
+    <div class="connection-meta"><div class="connection-links"><span id="status" role="status" class="status"><i></i><span>正在连接</span></span><button id="focusTarget" class="text-button" title="切换到当前连接的酒馆标签页">打开原页 ↗</button></div><span id="count">—</span></div>
+    <div id="connectionHint" class="connection-hint" hidden></div>
+    <button id="openTarget" class="text-button" hidden>打开酒馆并登录 ↗</button>
+  </section>
+
+  <nav class="view-tabs" aria-label="查看方式">
+    <button id="latestTab" class="view-tab selected" aria-pressed="true">最新回复</button>
+    <button id="historyTab" class="view-tab" aria-pressed="false">聊天记录 <span id="historyCount">0</span></button>
+    <button id="settingsButton" class="view-tab" aria-haspopup="dialog">设置</button>
+    <div class="view-actions">
+      <button id="copy" class="quiet" title="复制最新 AI 回复">复制</button>
+      <button id="fontSize" class="quiet" title="调整字号">Aa</button>
+    </div>
+  </nav>
+
+  <main id="reader" tabindex="0" aria-label="聊天内容" aria-busy="false">
+    <div id="empty" class="empty"><span class="empty-symbol" aria-hidden="true">✦</span><h2>对话即将出现在这里</h2><p>保持酒馆页面打开，随时在这个小窗继续聊天。</p></div>
+    <div id="messages"></div>
+    <p id="historyNote" class="history-note" hidden></p>
+  </main>
+
+  <div class="reader-footer"><span id="activity">只在本机同步</span><button id="toBottom" class="text-button">跟随最新 ↓</button></div>
+
+  <section class="composer" aria-label="发送消息">
+    <div id="notice" class="notice" role="status" hidden></div>
+    <div id="draftHint" class="draft-hint" hidden></div>
+    <label class="sr-only" for="draft">回复内容</label>
+    <div class="composer-row">
+      <textarea id="draft" rows="2" maxlength="100000" placeholder="写下你的回复…" spellcheck="false"></textarea>
+      <div class="composer-buttons">
+        <button id="send" class="primary" disabled>发送</button>
+        <button id="regenerate" class="secondary" disabled>重新生成</button>
+        <button id="stop" class="stop" hidden disabled>停止</button>
+      </div>
+    </div>
+    <span id="draftState" class="sr-only" role="status">草稿仅保存在本机</span>
+  </section>
+
+  <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+    <form id="settingsForm">
+      <div class="settings-heading"><h2 id="settingsTitle">设置</h2><button id="closeSettings" type="button" class="quiet" aria-label="关闭设置">✕</button></div>
+      <label class="setting-toggle"><input type="checkbox" id="filterFrontend" checked><span>过滤小前端，只显示文章</span></label>
+      <p class="setting-help">隐藏已识别的前端容器、iframe 和前端 HTML 代码块。只影响小窗，不修改酒馆消息。</p>
+      <label for="listeningOrigins" class="setting-label">监听地址</label>
+      <textarea id="listeningOrigins" rows="3" placeholder="https://your-tavern.example&#10;http://localhost:8000" spellcheck="false"></textarea>
+      <p class="setting-help">每行一个地址，可带端口，留空则停止监听。只监听填写的协议、域名和端口。新站点需要你在 Chrome 提示中允许访问；浏览器的站点权限可能覆盖同域名其他端口。</p>
+      <details class="advanced-settings"><summary>额外过滤规则（可选）</summary>
+        <label for="extraSelectors" class="sr-only">额外过滤规则</label>
+        <textarea id="extraSelectors" rows="2" placeholder=".status-panel&#10;#custom-frontend" spellcheck="false"></textarea>
+        <p class="setting-help">每行一个 CSS 选择器，只过滤回复内部匹配的区域。用于适配特殊角色卡；不确定时留空。</p>
+      </details>
+      <p id="settingsError" class="settings-error" role="alert" hidden></p>
+      <div class="settings-actions"><button id="cancelSettings" type="button" class="secondary">取消</button><button id="saveSettings" type="submit" class="primary">保存设置</button></div>
+    </form>
+  </dialog>
+</body>
+</html>
