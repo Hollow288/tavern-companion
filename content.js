@@ -34,6 +34,9 @@
     && !node.classList.contains('disabled');
   const busy = () => visible(control('mes_stop'));
   const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+  const messageNodes = () => Array.from(document.getElementById('chat')?.children || [])
+    .filter(node => node.matches('.mes[mesid]'));
+  const deletionCheckbox = node => Array.from(node.children).find(child => child.matches('input.del_checkbox'));
 
   function identity() {
     const select = control('extensionTopBarChatName');
@@ -53,7 +56,8 @@
     const input = control('send_textarea');
     const send = control('send_but');
     const id = identity();
-    const nodes = chat ? Array.from(chat.children).filter(node => node.matches('.mes[mesid]')) : [];
+    const nodes = messageNodes();
+    const last = nodes.at(-1);
     const messages = [];
     const sourceRevisions = nodes.map(node => [node.getAttribute('mesid'), node.getAttribute('swipeid'),
       node.getAttribute('is_user'), node.getAttribute('is_system'), node.getAttribute('ch_name'),
@@ -81,18 +85,26 @@
       });
     }
     messages.reverse();
-    const ready = !!chat && !!input && visible(input) && !!id.key;
+    // SillyTavern hides the composer while its native deletion selector is open.
+    const deleting = visible(control('dialogue_del_mes'));
+    const ready = !!chat && !!input && (visible(input) || deleting) && !!id.key;
     const generating = busy();
     const revision = hash(JSON.stringify({ key: id.key, sourceRevisions }));
     const state = {
       version: 1, chatKey: id.key, chatName: id.name, ready, busy: generating,
       filterFrontend: settings.filterFrontend,
       canSend: ready && enabled(input) && visible(send) && enabled(send) && !generating,
+      canDeleteLastUser: ready && !generating && !deleting && last?.getAttribute('is_user') === 'true'
+        && last.getAttribute('is_system') !== 'true' && /^\d+$/.test(last.getAttribute('mesid'))
+        && !nodes.some(node => node.querySelector('textarea.edit_textarea'))
+        && enabled(control('option_delete_mes')) && !!control('dialogue_del_mes')
+        && enabled(control('dialogue_del_mes_ok')) && enabled(control('dialogue_del_mes_cancel')),
       hasPageDraft: !!input?.value?.trim(),
       pending: Date.now() < pendingUntil,
       messages, loadedCount: nodes.length, truncated, revision,
-      lastRole: nodes.at(-1)?.getAttribute('is_user') === 'true' ? 'user'
-        : nodes.at(-1)?.getAttribute('is_system') === 'true' ? 'system' : 'assistant',
+      lastMessageId: last?.getAttribute('mesid') ?? null,
+      lastRole: last?.getAttribute('is_system') === 'true' ? 'system'
+        : last?.getAttribute('is_user') === 'true' ? 'user' : 'assistant',
       observedAt: Date.now()
     };
     state.signature = hash(JSON.stringify({ ...state, observedAt: 0 }));
@@ -137,8 +149,71 @@
     return !!check();
   }
 
+  async function revealMenuOption(id) {
+    const option = control(id);
+    if (!option || visible(option)) return option;
+    const button = control('options_button');
+    if (!visible(button) || !enabled(button)) throw new Error('未找到可用的聊天菜单按钮。');
+    // Native SillyTavern closes document clicks outside hover/focus. A remote click has neither.
+    // Its trigger has a direct click listener; keep this opening event from reaching the document.
+    button.dispatchEvent(new MouseEvent('click', { bubbles: false, cancelable: true, view: window }));
+    await waitFor(() => visible(control(id)), 900);
+    return control(id);
+  }
+
+  async function deleteLastUser(request, before) {
+    if (!before.canDeleteLastUser || before.lastRole !== 'user' || request.messageId !== before.lastMessageId) {
+      throw new Error('只能删除当前聊天最后一条自己的消息。请确认原页未在编辑或删除消息。');
+    }
+    const target = messageNodes().at(-1);
+    const previousIds = messageNodes().slice(0, -1).map(node => node.getAttribute('mesid'));
+    let opened = false;
+    let committed = false;
+    try {
+      await revealMenuOption('option_delete_mes');
+      assertChat(request);
+      const option = control('option_delete_mes');
+      if (!visible(option) || !enabled(option) || busy() || visible(control('dialogue_del_mes'))) {
+        throw new Error('原页删除菜单当前不可用，请打开原页检查。');
+      }
+      opened = true;
+      option.click();
+      const started = await waitFor(() => visible(control('dialogue_del_mes'))
+        && visible(deletionCheckbox(target)));
+      if (!started) throw new Error('未能打开原页删除选择，请打开原页检查。');
+
+      assertChat(request);
+      if (busy() || messageNodes().at(-1) !== target || !enabled(deletionCheckbox(target))) {
+        throw new Error('页面状态发生变化，已取消删除。');
+      }
+      // The native handler selects this message and everything after it. Only the final user message is allowed.
+      target.click();
+      assertChat(request);
+      const selected = messageNodes().filter(node => deletionCheckbox(node)?.checked);
+      const confirm = control('dialogue_del_mes_ok');
+      if (busy() || messageNodes().at(-1) !== target || selected.length !== 1 || selected[0] !== target
+          || !target.classList.contains('selected') || !visible(confirm) || !enabled(confirm)) {
+        throw new Error('原页未能只选中目标消息，已取消删除。');
+      }
+      pendingUntil = Date.now() + 6000;
+      committed = true;
+      confirm.click();
+      return await waitFor(() => {
+        const remaining = messageNodes();
+        return identity().key === before.chatKey && !target.isConnected
+          && JSON.stringify(remaining.map(node => node.getAttribute('mesid'))) === JSON.stringify(previousIds);
+      });
+    } finally {
+      // Undo only our unfinished selection; never retry a deletion with an uncertain acknowledgement.
+      if (opened && !committed && identity().key === before.chatKey && visible(control('dialogue_del_mes'))) {
+        const cancel = control('dialogue_del_mes_cancel');
+        if (visible(cancel) && enabled(cancel)) cancel.click();
+      }
+    }
+  }
+
   async function act(request) {
-    if (!['send', 'regenerate', 'stop'].includes(request.action)) throw new Error('不支持的操作。');
+    if (!['send', 'regenerate', 'stop', 'deleteLastUser'].includes(request.action)) throw new Error('不支持的操作。');
     if (actionRunning) throw new Error('上一个操作仍在处理，请稍候。');
     if (request.action !== 'stop' && Date.now() < pendingUntil) {
       throw new Error('刚刚已触发操作，请等待页面响应；不确定时请先检查原页。');
@@ -179,18 +254,15 @@
             return now.chatKey === before.chatKey && (now.busy || now.messages.some(m =>
               m.role === 'user' && m.text.trim() === text.trim() && !before.messages.some(old => old.id === m.id)));
           });
+        } else if (request.action === 'deleteLastUser') {
+          confirmed = await deleteLastUser(request, before);
         } else {
           if (before.lastRole !== 'assistant' || !before.messages.some(m => m.role === 'assistant')) {
             throw new Error('最后一条消息不是 AI 回复，请在原页检查聊天状态。');
           }
+          await revealMenuOption('option_regenerate');
           let regenerate = control('option_regenerate');
           if (!regenerate) throw new Error('未找到重新生成菜单，请检查酒馆页面版本。');
-          if (!visible(regenerate)) {
-            const menu = control('options_button');
-            if (!visible(menu)) throw new Error('未找到可用的聊天菜单按钮。');
-            menu.click();
-            await waitFor(() => visible(control('option_regenerate')), 900);
-          }
           assertChat(request);
           regenerate = control('option_regenerate');
           if (!visible(regenerate) || !enabled(regenerate)) throw new Error('重新生成菜单当前不可用，请打开原页检查。');
@@ -206,7 +278,8 @@
       }
       const state = readState();
       return { ok: true, triggered: true, confirmed, state,
-        message: confirmed ? (request.action === 'stop' ? '生成已停止。' : request.action === 'send' ? '页面已开始处理消息。' : '页面已开始重新生成。')
+        message: confirmed ? (request.action === 'stop' ? '生成已停止。' : request.action === 'send' ? '页面已开始处理消息。'
+          : request.action === 'deleteLastUser' ? '已删除最后一条自己的消息。' : '页面已开始重新生成。')
           : '操作已触发，但页面尚未确认。请打开原页检查；不要立即重复点击。' };
     } finally {
       actionRunning = false;

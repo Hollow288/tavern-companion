@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "酒馆随聊 · Tavern Companion",
-  "version": "1.1.1",
-  "description": "在独立小窗中查看 SillyTavern 最新回复和已加载的聊天记录，模拟页面操作发送、重新生成和停止。",
+  "version": "1.2.1",
+  "description": "在独立小窗中查看 SillyTavern 回复和聊天记录，模拟页面操作发送、重新生成、停止和删除最后一条自己的消息。",
   "minimum_chrome_version": "109",
   "permissions": ["storage", "scripting"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],

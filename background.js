@@ -120,12 +120,12 @@ async function route(message) {
     case 'ACTION': {
       const tab = await targetTab(message.tabId);
       if (tab.discarded || tab.status === 'loading') throw new Error('原页正在加载或已休眠，请打开原页恢复后再操作。');
-      if (!['send', 'regenerate', 'stop'].includes(message.action)) throw new Error('不支持的操作。');
-      // Never auto-retry a send/regenerate: an uncertain acknowledgement is not a failed click.
+      if (!['send', 'regenerate', 'stop', 'deleteLastUser'].includes(message.action)) throw new Error('不支持的操作。');
+      // Never auto-retry a mutating action: an uncertain acknowledgement is not a failed click.
       try {
         return await chrome.tabs.sendMessage(tab.id, {
           type: 'TC_ACTION', requestId: message.id, action: message.action,
-          chatKey: message.chatKey, revision: message.revision, text: message.text
+          chatKey: message.chatKey, revision: message.revision, text: message.text, messageId: message.messageId
         }, { frameId: 0 });
       } catch { throw new Error('操作结果未收到，可能尚未执行或已在原页触发。请检查原页后再操作。'); }
     }

@@ -26,6 +26,7 @@
   let connectionEpoch = 0;
   let newestObservation = 0;
   let tabs = [];
+  let deleteTarget = null;
 
   function status(text, kind = '') {
     $('status').dataset.kind = kind;
@@ -296,6 +297,11 @@
     const available = connected && !inFlight && !snapshot.pending;
     $('send').disabled = !available || !snapshot.canSend || !draftReady || !$('draft').value.trim();
     $('regenerate').disabled = !available || snapshot.busy || snapshot.lastRole !== 'assistant' || !latestReply();
+    $('deleteRow').hidden = snapshot?.lastRole !== 'user';
+    $('deleteLastUser').disabled = !available || snapshot.busy || !snapshot.canDeleteLastUser;
+    $('deleteLastUser').title = !connected ? '请先连接酒馆聊天。'
+      : snapshot.busy ? '请等待生成完成或先停止。'
+      : !snapshot.canDeleteLastUser ? '原页删除操作不可用；更新扩展后请刷新酒馆原页。' : '删除当前聊天最后一条自己的消息';
     $('stop').hidden = !snapshot?.busy;
     $('stop').disabled = !connected || !snapshot.busy || inFlight;
     // Drafts remain editable during generation and temporary disconnects for the same chat.
@@ -310,9 +316,9 @@
     $('settingsButton').disabled = inFlight;
   }
 
-  async function perform(action) {
+  async function perform(action, deletion = null) {
     if (!live || !snapshot || inFlight) return;
-    const source = { tabId: selectedTabId, chatKey: snapshot.chatKey, revision: snapshot.revision };
+    const source = deletion?.source || { tabId: selectedTabId, chatKey: snapshot.chatKey, revision: snapshot.revision };
     const text = $('draft').value;
     const sourceDraft = draftKey;
     inFlight = true;
@@ -325,7 +331,14 @@
         $('draft').value = '';
         saveDraft();
       }
-      notice(result.message || '操作已触发。', result.confirmed ? 'info' : 'warning');
+      let message = result.message || '操作已触发。';
+      if (action === 'deleteLastUser' && result.confirmed && source.tabId === selectedTabId
+          && source.chatKey === snapshot?.chatKey && sourceDraft === draftKey && draftReady && !$('draft').value) {
+        $('draft').value = deletion.text;
+        saveDraft();
+        message += ' 文字已放回输入框，可修改后重新发送。';
+      }
+      notice(message, result.confirmed ? 'info' : 'warning');
     } catch (error) { notice(error.message, 'error'); }
     finally {
       inFlight = false;
@@ -371,6 +384,23 @@
   });
   $('send').addEventListener('click', () => void perform('send'));
   $('regenerate').addEventListener('click', () => void perform('regenerate'));
+  $('deleteLastUser').addEventListener('click', () => {
+    if ($('deleteLastUser').disabled) return;
+    const last = snapshot.messages.at(-1);
+    if (last?.role !== 'user' || last.id !== snapshot.lastMessageId) return;
+    deleteTarget = { source: { tabId: selectedTabId, chatKey: snapshot.chatKey,
+      revision: snapshot.revision, messageId: last.id }, text: last.text };
+    $('deletePreview').textContent = last.text || '（这条消息没有可读取的文字）';
+    $('deleteDialog').showModal();
+    $('cancelDelete').focus();
+  });
+  $('cancelDelete').addEventListener('click', () => $('deleteDialog').close());
+  $('deleteDialog').addEventListener('close', () => { deleteTarget = null; });
+  $('confirmDelete').addEventListener('click', () => {
+    const deletion = deleteTarget;
+    $('deleteDialog').close();
+    if (deletion) void perform('deleteLastUser', deletion);
+  });
   $('stop').addEventListener('click', () => void perform('stop'));
   $('refresh').addEventListener('click', () => { void loadTabs().then(() => refreshState()); });
   $('focusTarget').addEventListener('click', () => request('FOCUS_TARGET', { tabId: selectedTabId }).catch(error => notice(error.message, 'error')));

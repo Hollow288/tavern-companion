@@ -51,8 +51,16 @@
         <button id="stop" class="stop" hidden disabled>停止</button>
       </div>
     </div>
+    <div id="deleteRow" class="delete-row" hidden><span>最后一条是你发送的消息</span><button id="deleteLastUser" class="danger-link" disabled>删除这条消息</button></div>
     <span id="draftState" class="sr-only" role="status">草稿仅保存在本机</span>
   </section>
+
+  <dialog id="deleteDialog" aria-labelledby="deleteTitle">
+    <h2 id="deleteTitle">删除最后一条自己的消息？</h2>
+    <p class="setting-help">将从酒馆聊天记录中删除这条消息。删除成功后，文字会放回空白输入框，方便重发；已有草稿会保留。</p>
+    <div id="deletePreview" class="delete-preview"></div>
+    <div class="settings-actions"><button id="cancelDelete" class="secondary">取消</button><button id="confirmDelete" class="danger">删除消息</button></div>
+  </dialog>
 
   <dialog id="settingsDialog" aria-labelledby="settingsTitle">
     <form id="settingsForm">

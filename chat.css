@@ -72,6 +72,11 @@ textarea:disabled { opacity:.6; }
 .secondary { color:#61745c; background:#edf1e8; border:1px solid #e0e7d9; padding:8px 10px; border-radius:8px; font-size:12px; }
 .stop { padding:8px 9px; border-radius:8px; font-size:12px; color:#a16e43; background:#f7ece0; }
 .filtered-note { font-size:10px; color:var(--muted); margin:8px 3px 0; }
+.delete-row { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:8px; padding:7px 3px 1px; border-top:1px solid var(--line); font-size:11px; color:var(--muted); }
+.danger-link { padding:3px 0; background:transparent; color:#a34738; font-size:11px; flex-shrink:0; }
+.danger { padding:9px 15px; border-radius:9px; color:white; background:#a34738; }
+#deleteTitle { font-size:17px; margin:0 0 12px; }
+.delete-preview { max-height:180px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; padding:12px; margin:12px 0 18px; border:1px solid var(--line); border-radius:8px; background:var(--paper); line-height:1.7; }
 dialog { width:min(450px,calc(100vw - 28px)); max-height:calc(100dvh - 32px); padding:20px; border:1px solid var(--line); border-radius:14px; color:var(--ink); background:var(--paper); box-shadow:0 18px 70px #233c3540; overflow:auto; }
 dialog::backdrop { background:#203b354d; }
 .settings-heading { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
